@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- matt/2026-08-15: packageNames deliberately scopes this service to Whiteout Survival only:
+     it never sees or touches any other app's screen. canPerformGestures is what lets it dispatch
+     taps/swipes; canTakeScreenshot is the API 30+ capture path (no MediaProjection dialog). -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canPerformGestures="true"
+    android:canTakeScreenshot="true"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100"
+    android:packageNames="com.gof.global" />
