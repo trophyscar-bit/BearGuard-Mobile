@@ -40,6 +40,13 @@ class BearGuardAccessibilityService : AccessibilityService() {
         captureScreenshot { bitmap ->
             if (bitmap != null) {
                 Log.i(TAG, "SELF-TEST capture OK: ${bitmap.width}x${bitmap.height}")
+                // Second self-test, chained: OCR the Power HUD crop -- the exact same
+                // (130,48)-(272,96) region bg_telemetry.java already proved out on the Windows
+                // side against this identical 720x1280 MuMu resolution. Real proof the OCR
+                // primitive works, not a synthetic test image.
+                OcrHelper.readText(bitmap, 130, 48, 272, 96) { text ->
+                    Log.i(TAG, "SELF-TEST OCR (Power HUD crop) raw text: '$text'")
+                }
             } else {
                 Log.w(TAG, "SELF-TEST capture FAILED")
             }

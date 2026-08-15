@@ -61,4 +61,10 @@ dependencies {
     // string array and a "msg" field) rather than pulling in a whole JSON library for that.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // matt/2026-08-15: second foundational piece -- almost every remaining module needs to read
+    // text off the game screen. tess4j (Bearguard-Win's Tesseract binding) is desktop-only; ML Kit
+    // Text Recognition is the standard on-device Android equivalent (bundled model, no network
+    // call per read, unlike a cloud OCR API).
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
