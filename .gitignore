@@ -3,6 +3,7 @@ build/
 app/build/
 local.properties
 *.apk
-*.png
 .idea/
 .kotlin/
+icon-src/
+/*.png
