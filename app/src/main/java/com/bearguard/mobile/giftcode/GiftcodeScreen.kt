@@ -122,7 +122,13 @@ fun GiftcodeScreen() {
             )
         }
 
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        // matt/2026-08-15: the Redeem button on the last row was sitting right at the bottom nav
+        // boundary with no clearance -- taps there were landing on the nav bar instead of the
+        // button. contentPadding guarantees every row, including the last, stays fully clear of it.
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
             items(codes) { entry ->
                 val result = results[entry.code]
                 val canRedeem = playerId.isNotBlank() && region.isNotBlank()
