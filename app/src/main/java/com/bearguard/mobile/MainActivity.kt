@@ -264,6 +264,19 @@ fun ModulesScreen(widthClass: WidthClass) {
     var selected by remember { mutableStateOf<ModuleEntry?>(null) }
 
     if (selected != null) {
+        // matt/2026-08-15: "start porting the routines" -- Get Giftcodes is the first real one,
+        // a full working port (fetch + redeem), not a placeholder. Everything else in the list
+        // still is, until it's ported the same deliberate way.
+        if (selected!!.name == "Get Giftcodes") {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Text("← Back to Modules")
+                }
+                com.bearguard.mobile.giftcode.GiftcodeScreen()
+            }
+            return
+        }
+
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
             TextButton(onClick = { selected = null }) { Text("← Back to Modules") }
             Spacer(Modifier.height(12.dp))

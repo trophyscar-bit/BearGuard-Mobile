@@ -54,4 +54,11 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
+
+    // matt/2026-08-15: first ported routine (Get Giftcodes) needs HTTP -- java.net.http.HttpClient
+    // isn't available below API 34, and minSdk here is 30, so OkHttp instead of raising minSdk.
+    // JSON parsing uses the built-in org.json (both response shapes here are trivial -- a "codes"
+    // string array and a "msg" field) rather than pulling in a whole JSON library for that.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 }

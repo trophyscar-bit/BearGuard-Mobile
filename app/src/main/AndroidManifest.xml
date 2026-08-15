@@ -4,6 +4,9 @@
     <!-- No screen-record/overlay permissions needed: AccessibilityService.takeScreenshot()
          (API 30+) covers capture, and the same service dispatches taps/swipes. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Get Giftcodes module: fetches active codes from the community aggregator and redeems
+         them via Century Games' official API, both plain HTTPS, no screen interaction. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="false"
