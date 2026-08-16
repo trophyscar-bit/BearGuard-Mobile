@@ -323,6 +323,18 @@ fun ModulesScreen(widthClass: WidthClass) {
             return
         }
 
+        // matt/2026-08-15: sixth real ported module -- lives under the existing "Alliance" entry
+        // since Chests is an Alliance-panel feature, not a separate module in the original list.
+        if (selected!!.name == "Alliance") {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Text("← Back to Modules")
+                }
+                com.bearguard.mobile.alliancechest.AllianceChestScreen()
+            }
+            return
+        }
+
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
             TextButton(onClick = { selected = null }) { Text("← Back to Modules") }
             Spacer(Modifier.height(12.dp))
