@@ -251,6 +251,7 @@ private val MODULES = listOf(
     ModuleEntry("Events", Icons.Filled.CalendarMonth),
     ModuleEntry("Experts", Icons.Filled.School),
     ModuleEntry("Chief Order", Icons.Filled.Gavel),
+    ModuleEntry("VIP", Icons.Filled.WorkspacePremium),
     ModuleEntry("Get Giftcodes", Icons.Filled.CardGiftcard),
     ModuleEntry("Debugging", Icons.Filled.BugReport),
     ModuleEntry("Task Builder", Icons.Filled.Build),
@@ -295,6 +296,17 @@ fun ModulesScreen(widthClass: WidthClass) {
                     Text("← Back to Modules")
                 }
                 com.bearguard.mobile.deals.DealsScreen()
+            }
+            return
+        }
+
+        // matt/2026-08-15: fourth real ported module -- free claims only, no purchase flow.
+        if (selected!!.name == "VIP") {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Text("← Back to Modules")
+                }
+                com.bearguard.mobile.vip.VipScreen()
             }
             return
         }
