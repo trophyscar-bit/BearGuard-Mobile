@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -46,6 +48,7 @@ class BearGuardAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        _connected.value = true
         Log.i(TAG, "BearGuard Mobile accessibility service connected -- ready to capture/tap on ${TARGET_PACKAGE}.")
 
         // matt/2026-08-15: one-shot self-test on connect -- proves the actual capture API works
@@ -198,6 +201,7 @@ class BearGuardAccessibilityService : AccessibilityService() {
         super.onDestroy()
         engineJob?.cancel()
         if (instance === this) instance = null
+        _connected.value = false
     }
 
     companion object {
@@ -212,5 +216,16 @@ class BearGuardAccessibilityService : AccessibilityService() {
          * service in Settings > Accessibility. */
         var instance: BearGuardAccessibilityService? = null
             private set
+
+        // matt/2026-08-16: real bug caught live -- every screen was reading `instance != null`
+        // as a plain one-time val, so Compose never re-checked it once the Activity's first
+        // composition happened to land before the service finished connecting (a real race --
+        // service connection is async and routinely lags a beat behind Activity startup). Every
+        // "toggle stays greyed out" / "stale status" confusion this session traced back to this
+        // one thing. A StateFlow makes it observable: collectAsState() actually recomposes when
+        // the service connects or disconnects, instead of freezing whatever was true at first
+        // paint.
+        private val _connected = MutableStateFlow(false)
+        val connected: StateFlow<Boolean> = _connected
     }
 }

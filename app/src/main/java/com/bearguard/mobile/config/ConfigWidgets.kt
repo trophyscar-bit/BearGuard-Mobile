@@ -70,3 +70,88 @@ fun ConfigSectionHeader(title: String) {
         )
     }
 }
+
+/** Standalone persisted text field, matching a Windows TextField bound to a numeric/string
+ * config key (march counts, stamina reserves, percentages, etc). */
+@Composable
+fun ConfigTextFieldRow(key: String, label: String, default: String = "", numeric: Boolean = true) {
+    val context = LocalContext.current
+    val prefs = remember { ConfigPrefs(context) }
+    val scope = rememberCoroutineScope()
+    val value by prefs.text(key, default).collectAsState(initial = default)
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = { v ->
+            val filtered = if (numeric) v.filter { it.isDigit() || it == '.' } else v
+            scope.launch { prefs.setText(key, filtered) }
+        },
+        label = { Text(label) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    )
+}
+
+/** Persisted "dropdown" -- Android equivalent of a Windows ComboBox. Built as a simple
+ * exposed-dropdown menu (no extra dependency): a read-only text field that opens a DropdownMenu
+ * of the given options on tap. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun ConfigDropdownRow(key: String, label: String, options: List<String>, default: String = "") {
+    val context = LocalContext.current
+    val prefs = remember { ConfigPrefs(context) }
+    val scope = rememberCoroutineScope()
+    val selected by prefs.text(key, default).collectAsState(initial = default)
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    ) {
+        OutlinedTextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        scope.launch { prefs.setText(key, option) }
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Persisted radio-button group, matching Windows RadioButton toggle groups (e.g. Troop Source:
+ * All Troops / Use Formation). */
+@Composable
+fun ConfigRadioGroupRow(key: String, options: List<String>, default: String) {
+    val context = LocalContext.current
+    val prefs = remember { ConfigPrefs(context) }
+    val scope = rememberCoroutineScope()
+    val selected by prefs.text(key, default).collectAsState(initial = default)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        options.forEach { option ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+            ) {
+                RadioButton(
+                    selected = selected == option,
+                    onClick = { scope.launch { prefs.setText(key, option) } }
+                )
+                Text(option, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}

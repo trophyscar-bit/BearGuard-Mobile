@@ -10,12 +10,14 @@ import androidx.compose.ui.unit.dp
 import com.bearguard.mobile.config.ConfigCheckboxRow
 import com.bearguard.mobile.config.ConfigCheckboxWithOffsetRow
 import com.bearguard.mobile.config.ConfigSectionHeader
+import com.bearguard.mobile.scheduler.TaskLiveStatusRow
 
 /**
- * matt/2026-08-15: mirrors CityEventsLayout.fxml ("City Events & Missions") row for row. Only
- * "Claim mail rewards" has a real routine behind it on Android (MailRewardsRoutine, reachable
- * from the Mail Rewards module) -- everything else here is config-only until ported. Persists
- * real state regardless so nothing is lost once the automation catches up.
+ * matt/2026-08-15/16: mirrors CityEventsLayout.fxml ("City Events & Missions") row for row. Only
+ * "Claim mail rewards" has a real routine behind it on Android (MailRewardsRoutine, "mail_rewards"
+ * task -- this is now its actual home, matching Windows exactly) -- everything else here is
+ * config-only until ported. Persists real state regardless so nothing is lost once the
+ * automation catches up.
  */
 @Composable
 fun CityEventsConfigScreen() {
@@ -40,9 +42,7 @@ fun CityEventsConfigScreen() {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            ConfigCheckboxWithOffsetRow(
-                "ce_mail_rewards", "Claim mail rewards (real -- see Mail Rewards module)", "ce_mail_offset"
-            )
+            TaskLiveStatusRow("mail_rewards", "Claim mail rewards")
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

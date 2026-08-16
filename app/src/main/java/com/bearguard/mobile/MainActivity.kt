@@ -152,7 +152,7 @@ fun ControlScreen() {
     val scope = rememberCoroutineScope()
     val prefs = remember { com.bearguard.mobile.scheduler.SchedulerPrefs(context) }
     val running by prefs.engineRunning.collectAsState(initial = false)
-    val serviceConnected = com.bearguard.mobile.service.BearGuardAccessibilityService.instance != null
+    val serviceConnected by com.bearguard.mobile.service.BearGuardAccessibilityService.connected.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -241,121 +241,64 @@ fun StatisticsScreen() {
 }
 
 // ============================================================================
-// MODULES -- the real 29-entry list from LauncherLayoutController's
-// ModuleDefinition registry (pulled from the actual Windows source, not
-// guessed). Compact width = single-column list; expanded width = a grid, so
-// the tablet's extra horizontal room gets used instead of wasted.
+// MODULES -- matt/2026-08-16: "duplicate what is in the Windows version...
+// top category, subcategory... instead of top level category, we're
+// fucking around with subcategories... we should just be going top
+// category, subcategory." Rebuilt from the flat 29-entry list to the real
+// 7-hub structure LauncherLayoutController actually installs, in the exact
+// order it installs them (installEventsHub, then installTabbedHub x5, then
+// installCollapsibleSection for dev tools). Each hub is its own top-level
+// tile; tapping one opens its real side-nav of sub-screens (HubScreen).
+//
+// Two things deliberately left OUT of any hub, matching Windows exactly:
+// VIP has no settings screen there at all, and Chat's ModuleDefinition is
+// loaded but never assigned to any hub order list -- both genuinely
+// orphaned in Windows too, not just here.
 // ============================================================================
-private data class ModuleEntry(val name: String, val icon: ImageVector)
+private data class HubEntry(val name: String, val icon: ImageVector)
 
-private val MODULES = listOf(
-    // matt/2026-08-15: "the city module has city upgrades, city events, extra city events, and
-    // research... you click into one of those sub tabs, and it gives you options" -- mirrors
-    // Bearguard-Win's installTabbedHub("City", ...) grouping exactly (see
-    // LauncherLayoutController's cityOrder list). One hub entry, not four separate top-level ones.
-    ModuleEntry("City", Icons.Filled.LocationCity),
-    ModuleEntry("Rally", Icons.Filled.Flag),
-    ModuleEntry("General Shop", Icons.Filled.Store),
-    ModuleEntry("Gem Shop", Icons.Filled.Diamond),
-    ModuleEntry("Deals", Icons.Filled.LocalOffer),
-    ModuleEntry("Gather", Icons.Filled.Agriculture),
-    ModuleEntry("Intel", Icons.Filled.Visibility),
-    ModuleEntry("Alliance", Icons.Filled.Groups),
-    ModuleEntry("Alliance Championship", Icons.Filled.EmojiEvents),
-    ModuleEntry("Alliance Shop", Icons.Filled.ShoppingCart),
-    ModuleEntry("Alliance Mobilization", Icons.Filled.NotificationsActive),
-    ModuleEntry("Bear Trap", Icons.Filled.Build),
-    ModuleEntry("Beast Hunting", Icons.Filled.Pets),
-    ModuleEntry("Fishing Tournament", Icons.Filled.SetMeal),
-    ModuleEntry("Training", Icons.Filled.FitnessCenter),
-    ModuleEntry("Pets", Icons.Filled.Cottage),
-    ModuleEntry("Events", Icons.Filled.CalendarMonth),
-    ModuleEntry("Experts", Icons.Filled.School),
-    ModuleEntry("Chief Order", Icons.Filled.Gavel),
-    ModuleEntry("VIP", Icons.Filled.WorkspacePremium),
-    ModuleEntry("Mail Rewards", Icons.Filled.Mail),
-    ModuleEntry("Get Giftcodes", Icons.Filled.CardGiftcard),
-    ModuleEntry("Debugging", Icons.Filled.BugReport),
-    ModuleEntry("Task Builder", Icons.Filled.Build),
-    ModuleEntry("Skip Tutorial", Icons.Filled.SkipNext),
-    ModuleEntry("Character", Icons.Filled.Person),
-    ModuleEntry("Chat", Icons.Filled.Chat),
+private val HUBS = listOf(
+    HubEntry("Events", Icons.Filled.CalendarMonth),
+    HubEntry("City", Icons.Filled.LocationCity),
+    HubEntry("Alliance", Icons.Filled.Groups),
+    HubEntry("Economy", Icons.Filled.Store),
+    HubEntry("Troops", Icons.Filled.FitnessCenter),
+    HubEntry("Account", Icons.Filled.Person),
+    HubEntry("More (Dev Tools)", Icons.Filled.Build),
 )
 
 @Composable
 fun ModulesScreen(widthClass: WidthClass) {
-    var selected by remember { mutableStateOf<ModuleEntry?>(null) }
+    var selected by remember { mutableStateOf<HubEntry?>(null) }
 
     if (selected != null) {
-        // matt/2026-08-15: "start porting the routines" -- Get Giftcodes is the first real one,
-        // a full working port (fetch + redeem), not a placeholder. Everything else in the list
-        // still is, until it's ported the same deliberate way.
-        if (selected!!.name == "Get Giftcodes") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.giftcode.GiftcodeScreen()
+        Column(modifier = Modifier.fillMaxSize()) {
+            TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                Text("← Back to Modules")
             }
-            return
-        }
-
-        // matt/2026-08-15: "the city module has city upgrades, city events, extra city events,
-        // and research... click into one of those sub tabs" -- City is a hub, not a scheduled
-        // task itself, so it routes before the generic TaskRegistry lookup below.
-        if (selected!!.name == "City") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.city.CityHubScreen()
+            when (selected!!.name) {
+                "Events" -> com.bearguard.mobile.events.EventsHubScreen()
+                "City" -> com.bearguard.mobile.city.CityHubScreen()
+                "Alliance" -> com.bearguard.mobile.alliance.AllianceHubScreen()
+                "Economy" -> com.bearguard.mobile.economy.EconomyHubScreen()
+                "Troops" -> com.bearguard.mobile.troops.TroopsHubScreen()
+                "Account" -> com.bearguard.mobile.account.AccountHubScreen()
+                "More (Dev Tools)" -> MoreDevToolsHubScreen()
             }
-            return
-        }
-
-        // matt/2026-08-15: "mirror the Windows version... a toggle button, not a run queue" --
-        // every scheduled module (everything except Get Giftcodes, which needs a human glancing
-        // at codes) routes through the same generic toggle screen now. The engine
-        // (BearGuardAccessibilityService.startEngine()) drives these on their own schedule once
-        // enabled; there is no manual Run button anymore.
-        val scheduledTask = com.bearguard.mobile.scheduler.TaskRegistry.all
-            .find { it.displayName == selected!!.name }
-        if (scheduledTask != null) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.scheduler.ModuleTaskScreen(scheduledTask)
-            }
-            return
-        }
-
-        Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-            TextButton(onClick = { selected = null }) { Text("← Back to Modules") }
-            Spacer(Modifier.height(12.dp))
-            Icon(selected!!.icon, contentDescription = null, modifier = Modifier.size(40.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(selected!!.name, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Not built yet -- this module's automation logic hasn't been ported from " +
-                    "Bearguard-Win. Placeholder screen.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
         return
     }
 
     if (widthClass == WidthClass.COMPACT) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(MODULES) { module ->
+            items(HUBS) { hub ->
                 ListItem(
-                    headlineContent = { Text(module.name) },
-                    leadingContent = { Icon(module.icon, contentDescription = null) },
+                    headlineContent = { Text(hub.name) },
+                    leadingContent = { Icon(hub.icon, contentDescription = null) },
                     trailingContent = {
                         Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
                     },
-                    modifier = Modifier.clickable { selected = module }
+                    modifier = Modifier.clickable { selected = hub }
                 )
                 HorizontalDivider()
             }
@@ -369,21 +312,31 @@ fun ModulesScreen(widthClass: WidthClass) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(MODULES) { module ->
+            items(HUBS) { hub ->
                 Card(
-                    onClick = { selected = module },
+                    onClick = { selected = hub },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(module.icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                        Icon(hub.icon, contentDescription = null, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(10.dp))
-                        Text(module.name, style = MaterialTheme.typography.bodyMedium)
+                        Text(hub.name, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MoreDevToolsHubScreen() {
+    com.bearguard.mobile.hub.HubScreen("More (Dev Tools)", listOf("Debugging", "Task Builder")) { name ->
+        when (name) {
+            "Debugging" -> com.bearguard.mobile.more.DebuggingConfigScreen()
+            "Task Builder" -> com.bearguard.mobile.more.TaskBuilderConfigScreen()
         }
     }
 }

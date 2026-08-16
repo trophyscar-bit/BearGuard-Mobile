@@ -76,7 +76,8 @@ object TaskRegistry {
                 val r = AllianceChestRoutine.run()
                 if (r.failure != null) return TaskOutcome(r.failure, 10 * MIN, isError = true)
                 val summary = "Gift: ${if (r.giftClaimed) "claimed" else "n/a"} · " +
-                    "Loot: ${if (r.lootClaimed) "claimed" else "n/a"}"
+                    "Loot: ${if (r.lootClaimed) "claimed" else "n/a"} · " +
+                    "Points: ${if (r.pointsChestClaimed) "claimed" else "n/a"}"
                 return TaskOutcome(summary, HOUR)
             }
         },

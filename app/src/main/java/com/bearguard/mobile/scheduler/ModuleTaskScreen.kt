@@ -28,7 +28,7 @@ fun ModuleTaskScreen(task: RoutineTask) {
     val enabled by prefs.enabled(task.key).collectAsState(initial = false)
     val nextRunAt by prefs.nextRunAt(task.key).collectAsState(initial = 0L)
     val lastResult by prefs.lastResult(task.key).collectAsState(initial = "")
-    val serviceConnected = BearGuardAccessibilityService.instance != null
+    val serviceConnected by BearGuardAccessibilityService.connected.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
         Text(task.displayName, style = MaterialTheme.typography.titleLarge)

@@ -88,7 +88,7 @@ private fun CityUpgradesLiveStatusRow() {
     val task = remember { TaskRegistry.all.first { it.key == "city_upgrades" } }
     val enabled by prefs.enabled(task.key).collectAsState(initial = false)
     val lastResult by prefs.lastResult(task.key).collectAsState(initial = "")
-    val serviceConnected = BearGuardAccessibilityService.instance != null
+    val serviceConnected by BearGuardAccessibilityService.connected.collectAsState()
 
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.weight(1f)) {
