@@ -252,6 +252,7 @@ private val MODULES = listOf(
     ModuleEntry("Experts", Icons.Filled.School),
     ModuleEntry("Chief Order", Icons.Filled.Gavel),
     ModuleEntry("VIP", Icons.Filled.WorkspacePremium),
+    ModuleEntry("Mail Rewards", Icons.Filled.Mail),
     ModuleEntry("Get Giftcodes", Icons.Filled.CardGiftcard),
     ModuleEntry("Debugging", Icons.Filled.BugReport),
     ModuleEntry("Task Builder", Icons.Filled.Build),
@@ -307,6 +308,17 @@ fun ModulesScreen(widthClass: WidthClass) {
                     Text("← Back to Modules")
                 }
                 com.bearguard.mobile.vip.VipScreen()
+            }
+            return
+        }
+
+        // matt/2026-08-15: fifth real ported module.
+        if (selected!!.name == "Mail Rewards") {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Text("← Back to Modules")
+                }
+                com.bearguard.mobile.mail.MailScreen()
             }
             return
         }
