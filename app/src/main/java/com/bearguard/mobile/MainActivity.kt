@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * matt/2026-08-15: "has to be completely redone based on the resolution... auto detect it...
@@ -148,7 +149,10 @@ private fun ScreenFor(tab: Tab, widthClass: WidthClass) {
 @Composable
 fun ControlScreen() {
     val context = LocalContext.current
-    var running by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val prefs = remember { com.bearguard.mobile.scheduler.SchedulerPrefs(context) }
+    val running by prefs.engineRunning.collectAsState(initial = false)
+    val serviceConnected = com.bearguard.mobile.service.BearGuardAccessibilityService.instance != null
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -170,11 +174,27 @@ fun ControlScreen() {
         Spacer(Modifier.height(16.dp))
 
         Button(
-            onClick = { running = !running },
+            onClick = {
+                val service = com.bearguard.mobile.service.BearGuardAccessibilityService.instance
+                if (running) {
+                    service?.stopEngine()
+                    scope.launch { prefs.setEngineRunning(false) }
+                } else {
+                    service?.startEngine()
+                }
+            },
+            enabled = serviceConnected,
             modifier = Modifier.fillMaxWidth().height(44.dp)
         ) {
             Text(if (running) "Pause" else "Start Bot")
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Turn on individual modules under the Modules tab -- the engine only runs the " +
+                "ones you've enabled.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Spacer(Modifier.height(24.dp))
         HorizontalDivider()
@@ -229,9 +249,11 @@ fun StatisticsScreen() {
 private data class ModuleEntry(val name: String, val icon: ImageVector)
 
 private val MODULES = listOf(
-    ModuleEntry("City Upgrades", Icons.Filled.LocationCity),
-    ModuleEntry("City Events", Icons.Filled.Event),
-    ModuleEntry("Extra City Events", Icons.Filled.EventNote),
+    // matt/2026-08-15: "the city module has city upgrades, city events, extra city events, and
+    // research... you click into one of those sub tabs, and it gives you options" -- mirrors
+    // Bearguard-Win's installTabbedHub("City", ...) grouping exactly (see
+    // LauncherLayoutController's cityOrder list). One hub entry, not four separate top-level ones.
+    ModuleEntry("City", Icons.Filled.LocationCity),
     ModuleEntry("Rally", Icons.Filled.Flag),
     ModuleEntry("General Shop", Icons.Filled.Store),
     ModuleEntry("Gem Shop", Icons.Filled.Diamond),
@@ -246,7 +268,6 @@ private val MODULES = listOf(
     ModuleEntry("Beast Hunting", Icons.Filled.Pets),
     ModuleEntry("Fishing Tournament", Icons.Filled.SetMeal),
     ModuleEntry("Training", Icons.Filled.FitnessCenter),
-    ModuleEntry("Research", Icons.Filled.Science),
     ModuleEntry("Pets", Icons.Filled.Cottage),
     ModuleEntry("Events", Icons.Filled.CalendarMonth),
     ModuleEntry("Experts", Icons.Filled.School),
@@ -279,69 +300,32 @@ fun ModulesScreen(widthClass: WidthClass) {
             return
         }
 
-        // matt/2026-08-15: "port chief order next" -- second real ported module.
-        if (selected!!.name == "Chief Order") {
+        // matt/2026-08-15: "the city module has city upgrades, city events, extra city events,
+        // and research... click into one of those sub tabs" -- City is a hub, not a scheduled
+        // task itself, so it routes before the generic TaskRegistry lookup below.
+        if (selected!!.name == "City") {
             Column(modifier = Modifier.fillMaxSize()) {
                 TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
                     Text("← Back to Modules")
                 }
-                com.bearguard.mobile.chieforder.ChiefOrderScreen()
+                com.bearguard.mobile.city.CityHubScreen()
             }
             return
         }
 
-        // matt/2026-08-15: "gogogogo" continuous porting pass -- third real ported module.
-        if (selected!!.name == "Deals") {
+        // matt/2026-08-15: "mirror the Windows version... a toggle button, not a run queue" --
+        // every scheduled module (everything except Get Giftcodes, which needs a human glancing
+        // at codes) routes through the same generic toggle screen now. The engine
+        // (BearGuardAccessibilityService.startEngine()) drives these on their own schedule once
+        // enabled; there is no manual Run button anymore.
+        val scheduledTask = com.bearguard.mobile.scheduler.TaskRegistry.all
+            .find { it.displayName == selected!!.name }
+        if (scheduledTask != null) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
                     Text("← Back to Modules")
                 }
-                com.bearguard.mobile.deals.DealsScreen()
-            }
-            return
-        }
-
-        // matt/2026-08-15: fourth real ported module -- free claims only, no purchase flow.
-        if (selected!!.name == "VIP") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.vip.VipScreen()
-            }
-            return
-        }
-
-        // matt/2026-08-15: fifth real ported module.
-        if (selected!!.name == "Mail Rewards") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.mail.MailScreen()
-            }
-            return
-        }
-
-        // matt/2026-08-15: sixth real ported module -- lives under the existing "Alliance" entry
-        // since Chests is an Alliance-panel feature, not a separate module in the original list.
-        if (selected!!.name == "Alliance") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.alliancechest.AllianceChestScreen()
-            }
-            return
-        }
-
-        // matt/2026-08-15: seventh real ported module -- v1, read-only (see CityUpgradesRoutine).
-        if (selected!!.name == "City Upgrades") {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-                    Text("← Back to Modules")
-                }
-                com.bearguard.mobile.cityupgrades.CityUpgradesScreen()
+                com.bearguard.mobile.scheduler.ModuleTaskScreen(scheduledTask)
             }
             return
         }

@@ -8,8 +8,15 @@ import android.graphics.Path
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.Display
+import com.bearguard.mobile.scheduler.SchedulerPrefs
+import com.bearguard.mobile.scheduler.TaskRegistry
 import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -33,6 +40,8 @@ import kotlin.coroutines.resume
 class BearGuardAccessibilityService : AccessibilityService() {
 
     private val executor = Executors.newSingleThreadExecutor()
+    private val serviceScope = CoroutineScope(SupervisorJob())
+    private var engineJob: Job? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -56,7 +65,65 @@ class BearGuardAccessibilityService : AccessibilityService() {
                 Log.w(TAG, "SELF-TEST capture FAILED")
             }
         }
+
+        // matt/2026-08-15: resume automatically if the engine was left running before the
+        // service got torn down (app update, process death) -- mirrors Bearguard-Win's
+        // --resume-queue relaunch behavior instead of silently going quiet until the user
+        // remembers to hit Start again.
+        serviceScope.launch {
+            if (SchedulerPrefs(this@BearGuardAccessibilityService).engineRunning.first()) {
+                Log.i(TAG, "Engine was running before restart -- resuming.")
+                startEngine()
+            }
+        }
     }
+
+    /**
+     * matt/2026-08-15: "I want this to mirror the Windows version... a toggle button to turn
+     * whatever it is on and off." This is the whole engine loop -- Bearguard-Win's
+     * ScheduleService equivalent. Every ENGINE_TICK_MS, walks every registered task; a task
+     * whose toggle is on and whose next-run time has arrived gets run, one at a time (never
+     * concurrently -- they all share the one game screen). No-op while paused.
+     */
+    fun startEngine() {
+        if (engineJob?.isActive == true) return
+        val prefs = SchedulerPrefs(this)
+        engineJob = serviceScope.launch {
+            prefs.setEngineRunning(true)
+            Log.i(TAG, "Engine started.")
+            while (true) {
+                for (task in TaskRegistry.all) {
+                    if (!prefs.enabled(task.key).first()) continue
+                    val nextRunAt = prefs.nextRunAt(task.key).first()
+                    val now = System.currentTimeMillis()
+                    if (now < nextRunAt) continue
+
+                    Log.i(TAG, "Engine running task: ${task.displayName}")
+                    val outcome = try {
+                        task.runOnce()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Task ${task.displayName} threw: ${e.message}")
+                        com.bearguard.mobile.scheduler.TaskOutcome(
+                            "Error: ${e.message}", ENGINE_ERROR_RETRY_MS, isError = true
+                        )
+                    }
+                    Log.i(TAG, "Engine task ${task.displayName} result: ${outcome.summary}")
+                    prefs.setLastResult(task.key, outcome.summary)
+                    prefs.setNextRunAt(task.key, System.currentTimeMillis() + outcome.nextRunDelayMs)
+                }
+                delay(ENGINE_TICK_MS)
+            }
+        }
+    }
+
+    fun stopEngine() {
+        engineJob?.cancel()
+        engineJob = null
+        serviceScope.launch { SchedulerPrefs(this@BearGuardAccessibilityService).setEngineRunning(false) }
+        Log.i(TAG, "Engine stopped.")
+    }
+
+    fun isEngineRunning(): Boolean = engineJob?.isActive == true
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // Intentionally empty for now -- no WS-specific logic yet. Routines will hook in here
@@ -129,12 +196,15 @@ class BearGuardAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        engineJob?.cancel()
         if (instance === this) instance = null
     }
 
     companion object {
         private const val TAG = "BearGuardMobile"
         private const val TARGET_PACKAGE = "com.gof.global"
+        private const val ENGINE_TICK_MS = 30_000L
+        private const val ENGINE_ERROR_RETRY_MS = 5 * 60_000L
 
         /** matt/2026-08-15: singleton handle so routine/UI code can reach the live service
          * instance without a bind -- same shape as every other Routine class reaching for the
