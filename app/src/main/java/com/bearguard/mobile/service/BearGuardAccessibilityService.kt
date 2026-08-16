@@ -61,7 +61,8 @@ class BearGuardAccessibilityService : AccessibilityService() {
                 // (130,48)-(272,96) region bg_telemetry.java already proved out on the Windows
                 // side against this identical 720x1280 MuMu resolution. Real proof the OCR
                 // primitive works, not a synthetic test image.
-                OcrHelper.readText(bitmap, 130, 48, 272, 96) { text ->
+                val (l, t, r, b) = ScreenCalibration.scaleBox(130, 48, 272, 96)
+                OcrHelper.readText(bitmap, l, t, r, b) { text ->
                     Log.i(TAG, "SELF-TEST OCR (Power HUD crop) raw text: '$text'")
                 }
             } else {
@@ -146,6 +147,9 @@ class BearGuardAccessibilityService : AccessibilityService() {
                 override fun onSuccess(result: ScreenshotResult) {
                     val bitmap = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
                     result.hardwareBuffer.close()
+                    if (bitmap != null) {
+                        ScreenCalibration.updateFromScreenshot(bitmap.width, bitmap.height)
+                    }
                     onResult(bitmap)
                 }
 
@@ -157,9 +161,14 @@ class BearGuardAccessibilityService : AccessibilityService() {
         )
     }
 
-    /** Single tap at (x, y) in screen pixel coordinates -- the Android analogue of `adb shell input tap`. */
+    /** Single tap at (x, y) in REFERENCE-space coordinates (the original 720x1280 MuMu
+     * calibration every Routine's constants are written against) -- transparently
+     * scaled to the actually-connected device's real resolution via
+     * [ScreenCalibration] before dispatching. The Android analogue of
+     * `adb shell input tap`, just resolution-independent. */
     fun tap(x: Float, y: Float, durationMs: Long = 60L) {
-        val path = Path().apply { moveTo(x, y) }
+        val (actualX, actualY) = ScreenCalibration.scalePoint(x, y)
+        val path = Path().apply { moveTo(actualX, actualY) }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         dispatchGesture(gesture, null, null)
@@ -172,10 +181,13 @@ class BearGuardAccessibilityService : AccessibilityService() {
         captureScreenshot { cont.resume(it) }
     }
 
-    /** Suspend wrapper over [OcrHelper.readText]. */
+    /** Suspend wrapper over [OcrHelper.readText]. Crop box is REFERENCE-space
+     * (720x1280), same as [tap] -- scaled to the source bitmap's actual resolution
+     * via [ScreenCalibration] before cropping. */
     suspend fun readTextSuspend(source: Bitmap, left: Int, top: Int, right: Int, bottom: Int): String? =
         suspendCancellableCoroutine { cont ->
-            OcrHelper.readText(source, left, top, right, bottom) { cont.resume(it) }
+            val (l, t, r, b) = ScreenCalibration.scaleBox(left, top, right, bottom)
+            OcrHelper.readText(source, l, t, r, b) { cont.resume(it) }
         }
 
     /**
