@@ -277,6 +277,17 @@ fun ModulesScreen(widthClass: WidthClass) {
             return
         }
 
+        // matt/2026-08-15: "port chief order next" -- second real ported module.
+        if (selected!!.name == "Chief Order") {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TextButton(onClick = { selected = null }, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Text("← Back to Modules")
+                }
+                com.bearguard.mobile.chieforder.ChiefOrderScreen()
+            }
+            return
+        }
+
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
             TextButton(onClick = { selected = null }) { Text("← Back to Modules") }
             Spacer(Modifier.height(12.dp))

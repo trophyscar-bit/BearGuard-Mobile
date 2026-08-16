@@ -2,12 +2,16 @@ package com.bearguard.mobile.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.Display
 import java.util.concurrent.Executors
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * matt/2026-08-15: the whole automation engine lives here. This mirrors the two primitives
@@ -32,6 +36,7 @@ class BearGuardAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         Log.i(TAG, "BearGuard Mobile accessibility service connected -- ready to capture/tap on ${TARGET_PACKAGE}.")
 
         // matt/2026-08-15: one-shot self-test on connect -- proves the actual capture API works
@@ -90,8 +95,52 @@ class BearGuardAccessibilityService : AccessibilityService() {
         dispatchGesture(gesture, null, null)
     }
 
+    /** Suspend wrapper over [captureScreenshot] -- for routine code written as a straight-line
+     * coroutine instead of nested callbacks, same readability the Windows Routine classes get for
+     * free from being synchronous. */
+    suspend fun captureScreenshotSuspend(): Bitmap? = suspendCancellableCoroutine { cont ->
+        captureScreenshot { cont.resume(it) }
+    }
+
+    /** Suspend wrapper over [OcrHelper.readText]. */
+    suspend fun readTextSuspend(source: Bitmap, left: Int, top: Int, right: Int, bottom: Int): String? =
+        suspendCancellableCoroutine { cont ->
+            OcrHelper.readText(source, left, top, right, bottom) { cont.resume(it) }
+        }
+
+    /**
+     * matt/2026-08-15: real bug caught during Chief Order's first live test -- unlike the
+     * Windows app (where the game IS the whole desktop), BearGuard Mobile's own UI is what's in
+     * the foreground when the user taps "Run", so every dispatched gesture was landing on
+     * BearGuard Mobile's own screen instead of the game. Every routine needs WS actually in
+     * front before it starts tapping game coordinates.
+     *
+     * Launches Whiteout Survival's real activity (com.gof.global/com.unity3d.player.
+     * MyMainPlayerActivity, confirmed live via `pm resolve-activity`) and gives it a moment to
+     * come to the foreground.
+     */
+    suspend fun bringGameToForeground(waitMs: Long = 3000L) {
+        val intent = packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
+            ?: Intent().setClassName(TARGET_PACKAGE, "com.unity3d.player.MyMainPlayerActivity")
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        startActivity(intent)
+        delay(waitMs)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (instance === this) instance = null
+    }
+
     companion object {
         private const val TAG = "BearGuardMobile"
         private const val TARGET_PACKAGE = "com.gof.global"
+
+        /** matt/2026-08-15: singleton handle so routine/UI code can reach the live service
+         * instance without a bind -- same shape as every other Routine class reaching for the
+         * one shared automation session on the Windows side. Null until the user has enabled the
+         * service in Settings > Accessibility. */
+        var instance: BearGuardAccessibilityService? = null
+            private set
     }
 }
